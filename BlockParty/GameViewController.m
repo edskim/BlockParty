@@ -10,9 +10,11 @@
 #import "Block.h"
 #import <QuartzCore/QuartzCore.h>
 
-@interface GameViewController ()
+@interface GameViewController () <UIAlertViewDelegate>
 @property (strong) NSMutableDictionary *blocks;
 @property (strong) NSTimer *timer;
+@property (nonatomic) int score;
+@property (strong) UILabel *scoreLabel;
 @property BOOL gameOver;
 @end
 
@@ -22,7 +24,6 @@
 {
     self = [super initWithNibName:nibNameOrNil bundle:nibBundleOrNil];
     if (self) {
-        self.blocks = [NSMutableDictionary new];
     }
     return self;
 }
@@ -30,15 +31,16 @@
 - (void)viewDidLoad
 {
     [super viewDidLoad];
-    for (int row = 0; row < 8; row++) {
-        for (int column = 0; column < 8 ; column++) {
-            Block *block = [[Block alloc]init];
-            [self.blocks setObject:block forKey:NSStringFromCGPoint(CGPointMake(row*40+20, column*40+20))];
-            [block createLayerWithCenter:CGPointMake(row*40+20,column*40+20) andView:self.view];
-        }
-    }
+
     CGAffineTransform transformVerticalFlip = CGAffineTransformMakeScale(1, -1);
     self.view.transform = transformVerticalFlip;
+    self.scoreLabel = [[UILabel alloc]initWithFrame:CGRectMake(0, 455, 100, 25)];
+    self.scoreLabel.layer.zPosition = 100;
+    self.scoreLabel.textColor = [UIColor blackColor];
+    self.scoreLabel.backgroundColor = [UIColor clearColor];
+    self.scoreLabel.opaque = NO;
+    self.scoreLabel.layer.transform = CATransform3DMakeAffineTransform(transformVerticalFlip);
+    
     [self startGame];
 }
 
@@ -53,8 +55,32 @@
     return (interfaceOrientation == UIInterfaceOrientationPortrait);
 }
 
+-(void)setScore:(int)score
+{
+    _score = score;
+    self.scoreLabel.text = [NSString stringWithFormat:@"Score: %d", score];
+}
+
 -(void)startGame
 {
+    self.blocks = [NSMutableDictionary new];
+    self.gameOver = NO;
+
+    self.view = [[UIView alloc] initWithFrame:self.view.bounds];
+    CGAffineTransform transformVerticalFlip = CGAffineTransformMakeScale(1, -1);
+    self.view.transform = transformVerticalFlip;
+          
+    self.score = 0;
+    [self.view addSubview:self.scoreLabel];
+    
+    for (int row = 0; row < 8; row++) {
+        for (int column = 0; column < 8 ; column++) {
+            Block *block = [[Block alloc]init];
+            [self.blocks setObject:block forKey:NSStringFromCGPoint(CGPointMake(row*40+20, column*40+20))];
+            [block createLayerWithCenter:CGPointMake(row*40+20,column*40+20) andView:self.view];
+        }
+    }
+    
     self.timer = [NSTimer scheduledTimerWithTimeInterval:3 target:self selector:@selector(dropBlocks) userInfo:nil repeats:YES];
 }
 
@@ -106,6 +132,7 @@
     NSArray *neighbors = [self getNeighborsWithSameColor:block];
     
     if ([deletedBlocks count] == 0 && [neighbors count] == 0) {
+        self.score -= 5;
         return;
     }
     
@@ -119,21 +146,7 @@
 
 }
 
--(void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event
-{
-    UITouch *touch = [touches anyObject];
-    CGPoint touchPoint = [touch locationInView:self.view];
-    touchPoint = [[touch view] convertPoint:touchPoint toView:nil];
-    
-    CALayer *layer = [(CALayer*)self.view.layer hitTest:touchPoint];
-    NSMutableArray *deletedBlocks = [NSMutableArray new];
-    [self destroyBlockAtPoint:layer.position withArr:deletedBlocks];
-    for (Block *block in deletedBlocks) {
-        for (Block *blockToDrop in [self blocksInColumnAbovePoint:block.layer.position]) {
-            [blockToDrop dropBlockByNumberOfBlocks:1];
-        }
-    }
-    NSLog(@"%@",deletedBlocks);
+-(void)syncDictionary {
     NSMutableDictionary *newDict = [NSMutableDictionary new];
     for (NSString *key in [self.blocks allKeys]) {
         Block *block = [self.blocks objectForKey:key];
@@ -144,6 +157,47 @@
         [newDict setObject:block forKey:newKey];
     }
     self.blocks = newDict;
+}
+
+//-(void)blockTouchedAtPoint:(CGPoint)point {
+//    NSMutableArray *deletedBlocks = [NSMutableArray new];
+////    NSMutableArray *movedBlocks = [NSMutableArray new];
+//    [self destroyBlockAtPoint:point withArr:deletedBlocks];
+//    for (Block *block in deletedBlocks) {
+//        for (Block *blockToDrop in [self blocksInColumnAbovePoint:block.layer.position]) {
+//            [blockToDrop dropBlockByNumberOfBlocks:1];
+////            [movedBlocks addObject:blockToDrop];
+//        }
+//    }
+//    [self syncDictionary];
+////    for (Block* block in movedBlocks) {
+////        [self blockTouchedAtPoint:block.layer.position];
+////    }
+//}
+
+-(void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event
+{
+    UITouch *touch = [touches anyObject];
+    CGPoint touchPoint = [touch locationInView:self.view];
+    touchPoint = [[touch view] convertPoint:touchPoint toView:nil];
+    
+    CALayer *layer = [(CALayer*)self.view.layer hitTest:touchPoint];
+    
+   // [self blockTouchedAtPoint:layer.position];
+    
+    NSMutableArray *deletedBlocks = [NSMutableArray new];
+    [self destroyBlockAtPoint:layer.position withArr:deletedBlocks];
+    
+    if ([deletedBlocks count]>0) {
+        self.score += pow(2.0, [deletedBlocks count]);
+    }
+    
+    for (Block *block in deletedBlocks) {
+        for (Block *blockToDrop in [self blocksInColumnAbovePoint:block.layer.position]) {
+            [blockToDrop dropBlockByNumberOfBlocks:1];
+        }
+    }
+    [self syncDictionary];
 }
 
 -(NSDictionary*)topPositionsForColumns {
@@ -215,8 +269,12 @@
         }
     }
     
-    UIAlertView *alert = [[UIAlertView alloc]initWithTitle:@"Game over" message:@"score" delegate:self cancelButtonTitle:@"OK" otherButtonTitles:nil];
+    UIAlertView *alert = [[UIAlertView alloc]initWithTitle:@"Game over" message:self.scoreLabel.text delegate:self cancelButtonTitle:@"OK" otherButtonTitles:nil];
     [alert show];
+}
+
+-(void)alertView:(UIAlertView *)alertView didDismissWithButtonIndex:(NSInteger)buttonIndex {
+    [self startGame];
 }
 
 @end

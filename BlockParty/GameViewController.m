@@ -59,7 +59,7 @@
 
 -(NSArray*)blocksInColumnAbovePoint:(CGPoint)point {
     NSMutableArray *ret = [NSMutableArray new];
-    for (int row = point.y+40; row < 8*40; row+=40) {
+    for (int row = point.y+40; row < 13*40; row+=40) {
         Block *block = [self.blocks objectForKey:NSStringFromCGPoint(CGPointMake(point.x, row))];
         if (block)
             [ret addObject:block];
@@ -67,37 +67,55 @@
     return ret;
 }
 
+-(NSArray*)getNeighborsWithSameColor:(Block*)block {
+    NSMutableArray *neighbors = [NSMutableArray new];
+    CGPoint point = block.layer.position;
+    Block *left,*right,*top,*bottom;
+    if ( (left = [self.blocks objectForKey:NSStringFromCGPoint(CGPointMake(point.x-40, point.y))]) ) {
+        if (left.color == block.color) {
+            [neighbors addObject:left];
+        }
+    }
+    if ( (right = [self.blocks objectForKey:NSStringFromCGPoint(CGPointMake(point.x+40, point.y))]) ) {
+        if (right.color == block.color) {
+            [neighbors addObject:right];
+        }
+    }
+    if ( (top = [self.blocks objectForKey:NSStringFromCGPoint(CGPointMake(point.x, point.y+40))]) ) {
+        if (top.color == block.color) {
+            [neighbors addObject:top];
+        }
+    }
+    if ( (bottom = [self.blocks objectForKey:NSStringFromCGPoint(CGPointMake(point.x, point.y-40))]) ) {
+        if (bottom.color == block.color) {
+            [neighbors addObject:bottom];
+        }
+    }
+    return neighbors;
+}
+
 - (void)destroyBlockAtPoint:(CGPoint)point withArr:(NSMutableArray*)deletedBlocks {
     Block *block = [self.blocks objectForKey:NSStringFromCGPoint(point)];
-    
+
+
     if (!block)
         return;
+    
+    
+    NSArray *neighbors = [self getNeighborsWithSameColor:block];
+    
+    if ([deletedBlocks count] == 0 && [neighbors count] == 0) {
+        return;
+    }
     
     [block.layer removeFromSuperlayer];
     [self.blocks removeObjectForKey:NSStringFromCGPoint(block.layer.position)];
     [deletedBlocks addObject:block];
     
-    Block *left,*right,*top,*bottom;
-    if ( (left = [self.blocks objectForKey:NSStringFromCGPoint(CGPointMake(point.x-40, point.y))]) ) {
-        if (left.color == block.color) {
-            [self destroyBlockAtPoint:left.layer.position withArr:deletedBlocks];
-        }
+    for (Block* neighbor in neighbors) {
+        [self destroyBlockAtPoint:neighbor.layer.position withArr:deletedBlocks];
     }
-    if ( (right = [self.blocks objectForKey:NSStringFromCGPoint(CGPointMake(point.x+40, point.y))]) ) {
-        if (right.color == block.color) {
-            [self destroyBlockAtPoint:right.layer.position withArr:deletedBlocks];
-        }
-    }
-    if ( (top = [self.blocks objectForKey:NSStringFromCGPoint(CGPointMake(point.x, point.y+40))]) ) {
-        if (top.color == block.color) {
-            [self destroyBlockAtPoint:top.layer.position withArr:deletedBlocks];
-        }
-    }
-    if ( (bottom = [self.blocks objectForKey:NSStringFromCGPoint(CGPointMake(point.x, point.y-40))]) ) {
-        if (bottom.color == block.color) {
-            [self destroyBlockAtPoint:bottom.layer.position withArr:deletedBlocks];
-        }
-    }
+
 }
 
 -(void)touchesEnded:(NSSet *)touches withEvent:(UIEvent *)event
@@ -127,18 +145,38 @@
     self.blocks = newDict;
 }
 
+-(NSDictionary*)topPositionsForColumns {
+    NSMutableDictionary *highPoints = [NSMutableDictionary new];
+    for (NSString *key in self.blocks) {
+        CGPoint point = CGPointFromString(key);
+        if ([highPoints objectForKey:[NSNumber numberWithDouble:point.x]]) {
+            if (point.y > [[highPoints objectForKey:[NSNumber numberWithDouble:point.x]] doubleValue]) {
+                [highPoints setObject:[NSNumber numberWithDouble:point.y] forKey:[NSNumber numberWithDouble:point.x]];
+            }
+        } else {
+            [highPoints setObject:[NSNumber numberWithDouble:point.y] forKey:[NSNumber numberWithDouble:point.x]];
+        }
+    }
+    return highPoints;
+}
+
 -(void)dropBlocks
 {
-    for (int column = 0; column < 8 ; column++) {
-        for (int row = 0; row < 8; row++) {
-            
-            if(![self.blocks objectForKey:NSStringFromCGPoint(CGPointMake(row*40+20, column*40+20))]){
-                Block *block = [[Block alloc]init];
-                [self.blocks setObject:block forKey:NSStringFromCGPoint(CGPointMake(row*40+20, column*40+20))];
-                [block createLayerWithCenter:CGPointMake(row*40+20,column*40+20) andView:self.view];
-                break;
-            }
+    NSDictionary *highPoints = [self topPositionsForColumns];
+    for ( CGFloat column = 20.0; column < 12*40.0; column += 40.0 ) {
+        Block *block = [[Block alloc] init];
+        CGFloat topPoint;
+        if ([highPoints objectForKey:[NSNumber numberWithDouble:column]]) {
+            topPoint = [[highPoints objectForKey:[NSNumber numberWithDouble:column]] doubleValue] + 40.0;
+        } else {
+            topPoint = 20.0;
         }
+        [self.blocks setObject:block forKey:NSStringFromCGPoint(CGPointMake(column, topPoint))];
+        [block createLayerWithCenter:CGPointMake(column, topPoint) andView:self.view];
+        CABasicAnimation *drop = [CABasicAnimation animationWithKeyPath:@"position"];
+        drop.fromValue = [NSValue valueWithCGPoint:CGPointMake(column, 500)];
+        drop.duration = (500-topPoint)/40;
+        [block.layer addAnimation:drop forKey:NSStringFromCGPoint(block.layer.position)];
     }
 }
 

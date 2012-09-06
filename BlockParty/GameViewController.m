@@ -13,6 +13,7 @@
 @interface GameViewController ()
 @property (strong) NSMutableDictionary *blocks;
 @property (strong) NSTimer *timer;
+@property BOOL gameOver;
 @end
 
 @implementation GameViewController
@@ -177,15 +178,18 @@
         CABasicAnimation *drop = [CABasicAnimation animationWithKeyPath:@"position"];
         drop.fromValue = [NSValue valueWithCGPoint:CGPointMake(column, 500)];
         drop.duration = (500-topPoint)/40;
-        [block.layer addAnimation:drop forKey:NSStringFromCGPoint(block.layer.position)];
+        
         
         if (topPoint >= 440) {
-            [self animateBlock:block];
-            [self.timer invalidate];
-            UIAlertView *alert = [[UIAlertView alloc]initWithTitle:@"Game over" message:@"score" delegate:self cancelButtonTitle:@"OK" otherButtonTitles:nil];
-            [alert show];
-            break;
+            //[self animateBlock:block];
+            
+            if (!self.gameOver) {
+                [self.timer invalidate];
+                drop.delegate = self;
+                self.gameOver = YES;
+            }
         }
+        [block.layer addAnimation:drop forKey:NSStringFromCGPoint(block.layer.position)];
     }
 }
 
@@ -194,12 +198,25 @@
     CAKeyframeAnimation *flash = [CAKeyframeAnimation animationWithKeyPath:@"opacity"];
     
     flash.removedOnCompletion = NO;
-    flash.delegate = self;
-    
+    flash.repeatDuration = 200;
     [flash setValues:@[@0,@1,@0,@1,@0,@1,@0,@1,@0,@1,@0,@1,@0]];
     flash.duration = 5.0;
     flash.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionLinear];
     [block.layer addAnimation:flash forKey:@"flashBlock"];
+}
+
+-(void)animationDidStop:(CAAnimation *)anim finished:(BOOL)flag {
+    NSDictionary *topPositions = [self topPositionsForColumns];
+    for (NSNumber *key in topPositions) {
+        CGFloat row = [[topPositions objectForKey:key] doubleValue];
+        if ( row >= 440.0) {
+            Block *block = [self.blocks objectForKey:NSStringFromCGPoint(CGPointMake([key doubleValue], row))];
+            [self animateBlock:block];
+        }
+    }
+    
+    UIAlertView *alert = [[UIAlertView alloc]initWithTitle:@"Game over" message:@"score" delegate:self cancelButtonTitle:@"OK" otherButtonTitles:nil];
+    [alert show];
 }
 
 @end

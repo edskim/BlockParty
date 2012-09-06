@@ -171,21 +171,35 @@
         } else {
             topPoint = 20.0;
         }
-        if (topPoint <= 480) {
-            [self.blocks setObject:block forKey:NSStringFromCGPoint(CGPointMake(column, topPoint))];
-            [block createLayerWithCenter:CGPointMake(column, topPoint) andView:self.view];
-            CABasicAnimation *drop = [CABasicAnimation animationWithKeyPath:@"position"];
-            drop.fromValue = [NSValue valueWithCGPoint:CGPointMake(column, 500)];
-            drop.duration = (500-topPoint)/40;
-            [block.layer addAnimation:drop forKey:NSStringFromCGPoint(block.layer.position)];
-        }
-        else{
+    
+        [self.blocks setObject:block forKey:NSStringFromCGPoint(CGPointMake(column, topPoint))];
+        [block createLayerWithCenter:CGPointMake(column, topPoint) andView:self.view];
+        CABasicAnimation *drop = [CABasicAnimation animationWithKeyPath:@"position"];
+        drop.fromValue = [NSValue valueWithCGPoint:CGPointMake(column, 500)];
+        drop.duration = (500-topPoint)/40;
+        [block.layer addAnimation:drop forKey:NSStringFromCGPoint(block.layer.position)];
+        
+        if (topPoint >= 440) {
+            [self animateBlock:block];
             [self.timer invalidate];
             UIAlertView *alert = [[UIAlertView alloc]initWithTitle:@"Game over" message:@"score" delegate:self cancelButtonTitle:@"OK" otherButtonTitles:nil];
             [alert show];
             break;
         }
     }
+}
+
+-(void)animateBlock:(Block*)block
+{
+    CAKeyframeAnimation *flash = [CAKeyframeAnimation animationWithKeyPath:@"opacity"];
+    
+    flash.removedOnCompletion = NO;
+    flash.delegate = self;
+    
+    [flash setValues:@[@0,@1,@0,@1,@0,@1,@0,@1,@0,@1,@0,@1,@0]];
+    flash.duration = 5.0;
+    flash.timingFunction = [CAMediaTimingFunction functionWithName:kCAMediaTimingFunctionLinear];
+    [block.layer addAnimation:flash forKey:@"flashBlock"];
 }
 
 @end

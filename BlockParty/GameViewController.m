@@ -171,12 +171,20 @@
         } else {
             topPoint = 20.0;
         }
-        [self.blocks setObject:block forKey:NSStringFromCGPoint(CGPointMake(column, topPoint))];
-        [block createLayerWithCenter:CGPointMake(column, topPoint) andView:self.view];
-        CABasicAnimation *drop = [CABasicAnimation animationWithKeyPath:@"position"];
-        drop.fromValue = [NSValue valueWithCGPoint:CGPointMake(column, 500)];
-        drop.duration = (500-topPoint)/40;
-        [block.layer addAnimation:drop forKey:NSStringFromCGPoint(block.layer.position)];
+        if (topPoint <= 480) {
+            [self.blocks setObject:block forKey:NSStringFromCGPoint(CGPointMake(column, topPoint))];
+            [block createLayerWithCenter:CGPointMake(column, topPoint) andView:self.view];
+            CABasicAnimation *drop = [CABasicAnimation animationWithKeyPath:@"position"];
+            drop.fromValue = [NSValue valueWithCGPoint:CGPointMake(column, 500)];
+            drop.duration = (500-topPoint)/40;
+            [block.layer addAnimation:drop forKey:NSStringFromCGPoint(block.layer.position)];
+        }
+        else{
+            [self.timer invalidate];
+            UIAlertView *alert = [[UIAlertView alloc]initWithTitle:@"Game over" message:@"score" delegate:self cancelButtonTitle:@"OK" otherButtonTitles:nil];
+            [alert show];
+            break;
+        }
     }
 }
 

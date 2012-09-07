@@ -18,10 +18,11 @@ typedef enum{
 } BlockColor;
 
 @interface Block : NSObject
-
+@property (strong) id target;
+@property SEL action;
 @property (strong) CALayer *layer;
 @property (readonly) BlockColor color;
 -(void)createLayerWithCenter:(CGPoint)center andView:(UIView*)view;
--(void)dropBlockByNumberOfBlocks:(int)num;
+-(void)dropBlockByNumberOfBlocks:(CGFloat)num;
 
 @end
